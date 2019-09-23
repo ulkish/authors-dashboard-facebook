@@ -29,35 +29,46 @@ along with Authors Dashboard. If not, see https://www.gnu.org/licenses/gpl-2.0.h
 
 // Loading Facebook PHP SDK for access to the Graph API.
 require_once __DIR__ . '/vendor/autoload.php';
-
+// Loading app credentials.
+require_once 'app-credentials.php';
 
 // TODO LIST:
 // - Add the Facebook API. [DONE]
-// - Get data.
+// - Get data. [DONE]
 // - Format data for storing in postmeta.
 
+/**
+ * Performs a request to the GraphAPI to check a given URL engagement stats.
+ *
+ * @param string $url URL on which to perform the search with.
+ * @param array  $app_credentials Array of necessary.
+ * @return mixed $graph_node GraphNode Object.
+ */
+function get_facebook_data( $url, $app_credentials ) {
 
-$fb = new \Facebook\Facebook(
-	[
-		'app_id'                => '{app-id}',
-		'app_secret'            => '{app-secret}',
-		'default_graph_version' => 'v2.10',
-	]
-);
+	$fb = new \Facebook\Facebook(
+		[
+			'app_id'                => $app_credentials['app_id'],
+			'app_secret'            => $app_credentials['app_secret'],
+			'default_graph_version' => 'v2.10',
+		]
+	);
 
-try {
-	// Get the \Facebook\GraphNodes\GraphUser object for the current user.
-	// If you provided a 'default_access_token', the '{access-token}' is optional.
-	$response = $fb->get( '/me' );
-} catch ( \Facebook\Exceptions\FacebookResponseException $e ) {
-	// When Graph returns an error.
-	echo 'Graph returned an error: ' . $e->getMessage();
-	exit;
-} catch ( \Facebook\Exceptions\FacebookSDKException $e ) {
-	// When validation fails or other local issues.
-	echo 'Facebook SDK returned an error: ' . $e->getMessage();
-	exit;
+	try {
+		// Get the GraphNode Object for the specified URL along its engagement stats.
+		$response = $fb->get(
+			'?id=' . $url . '&fields=engagement',
+			$app_credentials['access_token']
+		);
+	} catch ( \Facebook\Exceptions\FacebookResponseException $e ) {
+		// When Graph returns an error.
+		echo 'Graph returned an error: ' . esc_textarea( $e->getMessage() );
+		exit;
+	} catch ( \Facebook\Exceptions\FacebookSDKException $e ) {
+		// When validation fails or other local issues.
+		echo 'Facebook SDK returned an error: ' . esc_textarea( $e->getMessage() );
+		exit;
+	}
+	$graph_node = $response->getGraphNode();
+	return $graph_node;
 }
-
-$me = $response->getGraphUser();
-echo 'Logged in as ' . $me->getName();
