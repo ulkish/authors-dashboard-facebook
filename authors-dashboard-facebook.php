@@ -35,7 +35,8 @@ require_once 'app-credentials.php';
 // TODO LIST:
 // - Add the Facebook API. [DONE]
 // - Get data. [DONE]
-// - Format data for storing in postmeta.
+// - Format data for storing in postmeta. [DONE]
+// - Check rate limit for Facebook data requests.
 
 /**
  * Performs a request to the GraphAPI to check a given URL engagement stats.
@@ -55,7 +56,7 @@ function get_facebook_data( $url, $app_credentials ) {
 	);
 
 	try {
-		// Get the GraphNode Object for the specified URL along its engagement stats.
+		// Get the GraphNode Object for the specified URL containing its engagement stats.
 		$response = $fb->get(
 			'?id=' . $url . '&fields=engagement',
 			$app_credentials['access_token']
@@ -71,4 +72,56 @@ function get_facebook_data( $url, $app_credentials ) {
 	}
 	$graph_node = $response->getGraphNode();
 	return $graph_node;
+}
+
+// $data = get_facebook_data( 'https://www.sapiens.org/column/field-trips/neanderthal-sex-lives-bones/', $app_credentials );
+// print_r( $data );
+
+/**
+ * Performs a search for every post/page and returns an array containing all
+ *  engagement reports.
+ *
+ * @param array $app_credentials Array of necessary credentials.
+ * @return array $all_facebook_data All share_counts found.
+ */
+function get_all_facebook_data( $app_credentials ) {
+	$all_facebook_data = array();
+	$args              = array(
+		'posts_per_page' => -1,
+		'post_type'      => 'any',
+	);
+	$all_posts_query   = new WP_Query( $args );
+	// Query all the posts.
+	while ( $all_posts_query->have_posts() ) {
+		$all_posts_query->the_post();
+		$post_id       = $all_posts_query->post->ID;
+		$post_url      = get_permalink( $post_id );
+		$facebook_data = get_facebook_data( $post_url, $app_credentials );
+		array_push(
+			$all_facebook_data,
+			array(
+				'post_id'     => $post_id,
+				'share_count' => $facebook_data,
+			)
+		);
+	}
+
+	return $all_facebook_data;
+}
+// add_action( 'init', 'get_all_facebook_data', 10, 1 );
+
+/**
+ * Stores all the Facebook data gathered in every postmeta.
+ *
+ * @param array $all_facebook_data All share_count data.
+ * @return void
+ */
+function store_facebook_data( $all_facebook_data ) {
+	foreach ( $all_facebook_data as $facebook_data ) {
+		update_post_meta(
+			$facebook_data['post_id'],
+			'facebook_data',
+			$facebook_data['show_count']
+		);
+	}
 }
