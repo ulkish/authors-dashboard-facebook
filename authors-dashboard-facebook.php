@@ -27,16 +27,13 @@ along with Authors Dashboard. If not, see https://www.gnu.org/licenses/gpl-2.0.h
 @package Authors Dashboard Facebook
  */
 
+// TODO LIST:
+// - Check rate limit for Facebook data requests.
+
 // Loading Facebook PHP SDK for access to the Graph API.
 require_once __DIR__ . '/vendor/autoload.php';
 // Loading app credentials.
-require_once 'app-credentials.php';
-
-// TODO LIST:
-// - Add the Facebook API. [DONE]
-// - Get data. [DONE]
-// - Format data for storing in postmeta. [DONE]
-// - Check rate limit for Facebook data requests.
+require_once __DIR__ . '/facebook-app-credentials.php';
 
 /**
  * Performs a request to the GraphAPI to check a given URL engagement stats.
@@ -71,17 +68,14 @@ function get_facebook_data( $url, $app_credentials ) {
 		exit;
 	}
 	$graph_node = $response->getGraphNode();
-	return $graph_node;
+	return $graph_node['engagement']['share_count'];
 }
-
-// $data = get_facebook_data( 'https://www.sapiens.org/column/field-trips/neanderthal-sex-lives-bones/', $app_credentials );
-// print_r( $data );
 
 /**
  * Performs a search for every post/page and returns an array containing all
- *  engagement reports.
+ * engagement reports.
  *
- * @param array $app_credentials Array of necessary credentials.
+ * @param array $app_credentials Necessary credentials.
  * @return array $all_facebook_data All share_counts found.
  */
 function get_all_facebook_data( $app_credentials ) {
@@ -94,8 +88,15 @@ function get_all_facebook_data( $app_credentials ) {
 	// Query all the posts.
 	while ( $all_posts_query->have_posts() ) {
 		$all_posts_query->the_post();
-		$post_id       = $all_posts_query->post->ID;
-		$post_url      = get_permalink( $post_id );
+		$post_id  = $all_posts_query->post->ID;
+		$post_url = get_permalink( $post_id );
+		if ( strpos( $post_url, 'https://www.sapiens.org' ) === false ) {
+			$post_url = str_replace(
+				get_site_url(),
+				'https://www.sapiens.org',
+				$post_url
+			);
+		}
 		$facebook_data = get_facebook_data( $post_url, $app_credentials );
 		array_push(
 			$all_facebook_data,
@@ -105,10 +106,8 @@ function get_all_facebook_data( $app_credentials ) {
 			)
 		);
 	}
-
 	return $all_facebook_data;
 }
-// add_action( 'init', 'get_all_facebook_data', 10, 1 );
 
 /**
  * Stores all the Facebook data gathered in every postmeta.
@@ -121,7 +120,29 @@ function store_facebook_data( $all_facebook_data ) {
 		update_post_meta(
 			$facebook_data['post_id'],
 			'facebook_data',
-			$facebook_data['show_count']
+			$facebook_data['share_count']
 		);
 	}
 }
+
+/**
+ * Combines the main functions of the plugin into one for easier
+ * hooking into WP.
+ *
+ * @return void
+ */
+function get_and_store_facebook_data() {
+	$app_id       = '535448793933963';
+	$app_secret   = '3d1bdfd0e2ea3f58e80662295f6613c7';
+	$access_token = $app_id . '|' . $app_secret;
+
+	$app_credentials = array(
+		'app_id'       => $app_id,
+		'app_secret'   => $app_secret,
+		'access_token' => $access_token,
+	);
+
+	$all_facebook_data = get_all_facebook_data( $app_credentials );
+	store_facebook_data( $all_facebook_data );
+}
+// add_action( 'init', 'get_and_store_facebook_data' );
