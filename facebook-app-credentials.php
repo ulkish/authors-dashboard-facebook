@@ -12,7 +12,7 @@ $app_id       = '535448793933963';
 $app_secret   = '3d1bdfd0e2ea3f58e80662295f6613c7';
 $access_token = $app_id . '|' . $app_secret;
 
-$app_credentials = array(
+$facebook_credentials = array(
 	'app_id'       => $app_id,
 	'app_secret'   => $app_secret,
 	'access_token' => $access_token,

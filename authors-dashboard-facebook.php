@@ -39,15 +39,23 @@ require_once __DIR__ . '/facebook-app-credentials.php';
  * Performs a request to the GraphAPI to check a given URL engagement stats.
  *
  * @param string $url URL on which to perform the search with.
- * @param array  $app_credentials Array of necessary.
+ * @param array  $facebook_credentials Array of necessary.
  * @return mixed $graph_node GraphNode Object.
  */
-function get_facebook_data( $url, $app_credentials ) {
+function get_facebook_data( $url, $facebook_credentials ) {
+
+	if ( strpos( $url, 'https://www.sapiens.org' ) === false ) {
+		$url = str_replace(
+			get_site_url(),
+			'https://www.sapiens.org',
+			$url
+		);
+	}
 
 	$fb = new \Facebook\Facebook(
 		[
-			'app_id'                => $app_credentials['app_id'],
-			'app_secret'            => $app_credentials['app_secret'],
+			'app_id'                => $facebook_credentials['app_id'],
+			'app_secret'            => $facebook_credentials['app_secret'],
 			'default_graph_version' => 'v2.10',
 		]
 	);
@@ -56,7 +64,7 @@ function get_facebook_data( $url, $app_credentials ) {
 		// Get the GraphNode Object for the specified URL containing its engagement stats.
 		$response = $fb->get(
 			'?id=' . $url . '&fields=engagement',
-			$app_credentials['access_token']
+			$facebook_credentials['access_token']
 		);
 	} catch ( \Facebook\Exceptions\FacebookResponseException $e ) {
 		// When Graph returns an error.
@@ -75,10 +83,10 @@ function get_facebook_data( $url, $app_credentials ) {
  * Performs a search for every post/page and returns an array containing all
  * engagement reports.
  *
- * @param array $app_credentials Necessary credentials.
+ * @param array $facebook_credentials Necessary credentials.
  * @return array $all_facebook_data All share_counts found.
  */
-function get_all_facebook_data( $app_credentials ) {
+function get_all_facebook_data( $facebook_credentials ) {
 	$all_facebook_data = array();
 	$args              = array(
 		'posts_per_page' => -1,
@@ -88,16 +96,9 @@ function get_all_facebook_data( $app_credentials ) {
 	// Query all the posts.
 	while ( $all_posts_query->have_posts() ) {
 		$all_posts_query->the_post();
-		$post_id  = $all_posts_query->post->ID;
-		$post_url = get_permalink( $post_id );
-		if ( strpos( $post_url, 'https://www.sapiens.org' ) === false ) {
-			$post_url = str_replace(
-				get_site_url(),
-				'https://www.sapiens.org',
-				$post_url
-			);
-		}
-		$facebook_data = get_facebook_data( $post_url, $app_credentials );
+		$post_id       = $all_posts_query->post->ID;
+		$post_url      = get_permalink( $post_id );
+		$facebook_data = get_facebook_data( $post_url, $facebook_credentials );
 		array_push(
 			$all_facebook_data,
 			array(
@@ -136,13 +137,14 @@ function get_and_store_facebook_data() {
 	$app_secret   = '3d1bdfd0e2ea3f58e80662295f6613c7';
 	$access_token = $app_id . '|' . $app_secret;
 
-	$app_credentials = array(
+	$facebook_credentials = array(
 		'app_id'       => $app_id,
 		'app_secret'   => $app_secret,
 		'access_token' => $access_token,
 	);
 
-	$all_facebook_data = get_all_facebook_data( $app_credentials );
+	$all_facebook_data = get_all_facebook_data( $facebook_credentials );
 	store_facebook_data( $all_facebook_data );
 }
-// add_action( 'init', 'get_and_store_facebook_data' );
+// add_action( 'init', 'get_and_store_facebook_data' ); // Uncomment this if you need to do some testing.
+
